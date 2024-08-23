@@ -1,11 +1,11 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef} from 'react'
 
 import './App.css'
 
 function App() {
   const [length, setLength]= useState(7);
-  const [numAllow, setNumAllow]= useState(true);
-  const [charAllow, setCharAllow]= useState(true);
+  const [numAllow, setNumAllow]= useState(false);
+  const [charAllow, setCharAllow]= useState(false);
   const [password, setPassword]= useState("");
 
   const mainpass=()=>{
@@ -21,14 +21,26 @@ function App() {
 
     for(let i=1; i<length; i++){
       let char= Math.floor(Math.random()*str.length+1)
+      pass +=str.charAt(char)
     }
 
-    pass =str.charAt(char)
+    
     setPassword(pass);
   }
 
-  const passwordGen=useCallback(mainpass, [length, numAllow, charAllow, setPassword])
+  const passwordGen=useCallback( mainpass , [length, numAllow, charAllow, setPassword])
 
+  useEffect(()=>{
+    passwordGen()
+  },[length, numAllow, charAllow, passwordGen])
+
+  const passwordRef= useRef(null);
+
+  const copyToClipBoard= useCallback(()=>{
+    passwordRef.current?.select();
+    passwordRef.current?.setSelectionRange(0,100)
+    window.navigator.clipboard.writeText(password)
+  },[password])
 
 
   return (
@@ -40,8 +52,12 @@ function App() {
           <input type="text" 
           className='outline-none w-full py-1 px-3'
           placeholder='password'
+          value={password}
+          ref={passwordRef}
           />
-          <button className='bg-blue-600 px-2 '>COPY</button>
+          <button className='bg-blue-600 px-2 '
+          onClick={copyToClipBoard}
+          >COPY</button>
         </div>
         <div className='flex text-sm gap-x-2'>
           <divc className='flex items-center gap-x-1'>
@@ -49,7 +65,7 @@ function App() {
             className='cursor-pointer'
             type="range" 
             min={7}
-            max={100}
+            max={27}
             value={length}
             onChange={(e)=>{setLength(e.target.value)}}
              />
@@ -59,14 +75,13 @@ function App() {
           <divc className='flex items-center gap-x-1'>
             <input 
             className='cursor-pointer'
-            defaultChecked={numAllow}
+            
             id="numInput"
             type="checkbox" 
             onChange={()=>{
               setNumAllow((prev)=> !prev)
             }}
-            min={7}
-            max={100}
+           
             
              />
              <label htmlFor="">Numbers:</label>
@@ -75,11 +90,10 @@ function App() {
           <divc className='flex items-center gap-x-1'>
             <input 
             className='cursor-pointer'
-            defaultChecked={charAllow}
+            
             type="checkbox" 
-            min={7}
-            max={100}
-            onCanPlay={()=>{
+           
+            onChange={()=>{
               setCharAllow((prev)=>!prev)
             }}
              />
