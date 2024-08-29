@@ -5,7 +5,7 @@ import './App.css'
 
 function App() {
   const [amount, setAmount] = useState(0)
-  const [from, setfrom]= useState("usd");
+  const [from, setFrom]= useState("usd");
   const [to, setTo]= useState("inr");
   const [convertedAmount, setConvertedAmount]= useState(0);
 
@@ -13,13 +13,13 @@ function App() {
   const options= Object.keys(currencyInfo); 
 
   const swap=()=>{
-    setfrom(to)
+    setFrom(to)
     setTo(from)
     setConvertedAmount(amount)
     setAmount(convertedAmount)
   }
 
-  const convert=()=>{
+  const convert =()=>{
     setConvertedAmount(amount* currencyInfo[to]);
   }
 
@@ -61,7 +61,7 @@ function App() {
                     </div>
                     <div className="w-full mt-1 mb-4">
                         <InputBox
-                            label="to"
+                            label="To"
                             amount={convertedAmount}
                             currencyOptions={options}
                             onCurrencyChange={(currency)=>setTo(currency)}
@@ -70,7 +70,7 @@ function App() {
                         />
                     </div>
                     <button type="submit" className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg">
-                    convert{from.toUpperCase()} to {to.toUpperCase()}
+                    convert {from.toUpperCase()} to {to.toUpperCase()}
                     </button>
                 </form>
             </div>
