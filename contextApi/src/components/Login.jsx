@@ -8,12 +8,12 @@ function Login() {
     const {setUser}=useContext(UserContext)
     const handleSubmit=(e)=>{
         e.preventDefault()
-        setUser(username, password)
+        setUser({username, password})
     }
 
   return (
     <div>
-      <h1>Login</h1>
+      
       <input type="text" placeholder='username' 
       value={username}
       onChange={(e)=> setUsername(e.target.value)}/>
