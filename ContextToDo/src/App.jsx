@@ -1,26 +1,29 @@
 import { useState, useEffect } from "react";
 import "./App.css";
-import { TodoProvider } from "./Contexts";
+import { TodoProvider } from "./Contexts/Todocontext";
 import TodoForm from "./components/TodoFrom";
-import { TodoItem } from "./components";
+import  TodoItem from "./components/TodoItem";
 
 function App() {
   const [todos, setTodos]= useState([])
 
   const addTodo=(todo)=>{
-    setTodos((prev)=>[{todo:Date.now(), ...todo}, ...prev])
+    setTodos((prev)=>[{id:Date.now(), ...todo}, ...prev])
   }
 
   const updateTodo=(id, todo)=>{
-    setTodos((prev)=>prev.map(prevTodo.id===id ? todo:prevTodo))
+    setTodos((prev)=>prev.map((prevTodo)=>    (prevTodo.id===id ? todo:prevTodo)))
+    
+
   }
 
   const deleteTodo=(id)=>{
-    setTodos((prev)=>prev.filter((prevTodo)=> prevTodo.id !==id))
+    setTodos((prev)=>prev.filter((todo)=> todo.id !==id))
+    
   }
 
   const toggleComplete=(id)=>{
-    setTodos((prev)=> prev.map((prevTodo)=>prevTodo===id ? {...todos, completed: !prevTodo.completed}: prevTodo))
+    setTodos((prev)=> prev.map((prevTodo)=>prevTodo.id===id ? {...prevTodo, completed: !prevTodo.completed}: prevTodo))
   }
 
   useEffect(()=>{
@@ -49,11 +52,11 @@ function App() {
           </div>
           <div className="flex flex-wrap gap-y-3">
             {/*Loop and Add TodoItem here */}
-            {todos.map((todo)=>{
+            {todos.map((todo)=>(
               <div className="w-full" key={todo.id}>
-                <TodoItem/>
+                <TodoItem todo={todo}/>
               </div>
-            })}
+            ))}
           </div>
         </div>
       </div>
