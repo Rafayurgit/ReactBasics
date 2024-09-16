@@ -1,4 +1,4 @@
-import react, { useState } from 'react'
+import React, { useState } from 'react'
 import {useDispatch} from "react-redux"
 import {addTodo} from "../features/todo/todoSlice"
 
@@ -10,7 +10,7 @@ function AddTodo(){
 
     const addTodoHandler=(e)=>{
         e.preventDefault()
-        addTodo(input)
+        dispatch(addTodo(input))
         setInput('')
 
     }
@@ -23,10 +23,10 @@ function AddTodo(){
             onChange={(e)=>setInput(e.target.value) }
             />
 
-            <button>Add Todo</button>
+            <button type='submit'>Add Todo</button>
         </form>
         </>
     )
 }
 
-export default AddTodo;
+export default AddTodo

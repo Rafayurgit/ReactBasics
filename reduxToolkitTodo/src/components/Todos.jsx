@@ -8,12 +8,15 @@ function Todos (){
     return(
         <>
         <div>Todos</div>
-        {todos.map((todo)=>{
+        <ul>
+        {todos.map((todo)=>(
             <li key={todo.id}>
-                {todo.text}
-                <button onClick={()=>useDispatch(removeTodo(todo.id))}>X</button>
+                <div>{todo.text}</div>
+                
+                <button onClick={()=>dispatch(removeTodo(todo.id))}>X</button>
             </li>
-        })}
+        ))}
+        </ul>
         </>
     )
 }
