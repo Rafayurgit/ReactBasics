@@ -3,7 +3,9 @@ import Footer from "./Footer/Footer";
 import Container from "./Container/Container"
 import LogOutBtn from "./Header/LogOutBtn"; 
 import PostForm from "./post-form/PostForm";
-import PostCard from "./PostCard"
+import PostCard from "./PostCard";
+import AuthLayout from './AuthLayout';
+
 import Signup from "./Signup";
 import Login from "./Login"
 import Input from "./Input"
@@ -13,6 +15,6 @@ import Select from './Select'
 import RTE from "./RTE";
 
 
-export {Header, Footer, Logo, Container, LogOutBtn, Input , Button, Select, RTE, Signup, Login, PostForm, PostCard}
+export {Header, Footer, Logo, Container, LogOutBtn, Input , Button, Select, RTE, Signup, Login, PostForm, PostCard, AuthLayout}
 
 
