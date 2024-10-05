@@ -18,6 +18,12 @@ app.post('/add', (req, res)=>{
     .catch(err=> res.json(err))
 })
 
+app.get('/get', (req, res)=>{
+    todoModel.find()
+    .then(result=>res.json(result))
+    .catch(err =>res.json(err))
+})
+
 
 app.listen(port, ()=>{
     console.log('server is running')
