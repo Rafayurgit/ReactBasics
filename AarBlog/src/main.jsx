@@ -18,6 +18,7 @@ import AllPost from "./pages/AllPost.jsx";
 
 
 const router = createBrowserRouter([
+  {
   path:'/',
   element:<App/>,
   children:[
@@ -73,8 +74,9 @@ const router = createBrowserRouter([
       element:<Post/>
     } 
   ]
-
+  }
 ])
+
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
