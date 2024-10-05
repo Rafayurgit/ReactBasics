@@ -7,8 +7,7 @@ function Home() {
   return (
     <div className='home'>
       <h1>Todo List</h1>
-      <create/>
-
+      <Create/>
       {
         todos.length==0 ? <><h1>No Record</h1></>:
         todos.map(todos=>{
