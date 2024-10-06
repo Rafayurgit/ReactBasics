@@ -1,12 +1,12 @@
 import React,{useEffect,useState} from 'react'
-import service from '../appWrite/config'
+import service from '../appWrite/config';
 import { Container , PostCard} from '../Components'
 
 
 function Home() {
     const [posts, setPosts]= useState([]);
     useEffect(()=>{
-        service.getPosts.then((posts)=>{
+        service.getPost().then((posts)=>{
             if(posts){
                 setPosts(posts.documents)
             }

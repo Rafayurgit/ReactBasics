@@ -1,4 +1,4 @@
-import conf from "../conf/conf"
+import conf from "../conf/conf.js"
 import {Client, Account, ID} from "appwrite"
 
 export class Authservice{
@@ -6,7 +6,7 @@ export class Authservice{
     account;
 
     constructor(){
-        this.client.setEndpoint(conf.appwriteUrl).setProject(conf.appwriteProId)
+        this.client.setEndpoint(conf.appwriteUrl).setProject(conf.appwriteProId);
         this.account=new Account(this.client)
     }
 
@@ -36,9 +36,11 @@ export class Authservice{
 
     async getCurrentUser(){
         try{
+            //return await this.account.get();
             return await this.account.get();
         }catch(error){
             console.log("Appwrite serive :: getCurrentUser :: error", error);
+            
         }
 
         return null;

@@ -1,5 +1,5 @@
 
-import conf from "../conf/conf" 
+import conf from "../conf/conf.js" 
 import {Client, ID, Account, Databases, Query, Storage} from "appwrite"
 
 export class Service{
@@ -42,9 +42,10 @@ export class Service{
 
     async getPost(slug){
         try {
-            return this.dataBases.getDocument(conf.appwriteDdId, conf.appwriteCollectionId, slug)
+            return await this.dataBases.getDocument(conf.appwriteDdId, conf.appwriteCollectionId, slug)
         } catch (error) {
             console.log("AppWriteService :: getPost :: error" ,error)
+            return false;
         }
     }
 
@@ -64,6 +65,7 @@ export class Service{
             return await this.bucket.createFile(conf.appwriteBucketId, ID.unique(), file)
         }catch(error){
             console.log("AppWriteService :: uploafFile :: error", error);
+            return false;
         }
     }
 

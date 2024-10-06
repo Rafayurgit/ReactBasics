@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
 import './App.css'
-import {Footer,Header} from "./Components/index"
-// import { Footer } from './Components';
-// import { Header } from './Components';
+
 import {useDispatch} from 'react-redux'
 import authService from './appWrite/auth'
 
+import {Footer,Header} from "./Components/index"
 import {logIn, logOut} from "./store/authSlice"
 import { Outlet } from 'react-router-dom'
 
@@ -17,9 +16,9 @@ function App() {
   useEffect(()=>{
     authService.getCurrentUser().then((userData)=>{
       if(userData){
-        useDispatch(logIn({userData}))
+        dispatch(logIn({userData}))
       }else{
-        useDispatch(logOut())
+        dispatch(logOut())
       }
     }).finally(()=>{setLoading(false)})
   },[])

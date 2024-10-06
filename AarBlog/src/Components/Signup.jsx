@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
 import { useForm } from 'react-hook-form'
 import { logIn } from '../store/authSlice'
-import {Logo, Login , Input , Button} from "./index";
+import {Logo , Input , Button} from "./index";
 import authService from '../appWrite/auth'
 
 
@@ -12,8 +12,8 @@ function Signup() {
     const dispatch= useDispatch();
     const navigate= useNavigate();
     const [error, setErro]= useState("");
-    const {register, handelSubmit}= useForm();
-
+    const {register, handleSubmit}= useForm();
+                    
     const create= async (data)=>{
         setErro("");
         try{
@@ -42,16 +42,16 @@ function Signup() {
                 Already have an account?&nbsp;
             
             <Link 
-            to={'/login'}
+            to={'/logIn'}
             className='font-medium text-primary transition-all duration-200 hover:underline'>
-            Sugn In
+            Sign In
             </Link>
             </p>
             {error&& 
             <p className='text-red-600 mt-8 text-center'>
             {error}</p>}
 
-            <form onSubmit={handelSubmit(create)}>
+            <form onSubmit={handleSubmit(create)}>
                 <div className='space-y-5'>
                     <Input
                     label="full name"
