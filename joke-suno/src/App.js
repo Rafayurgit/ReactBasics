@@ -1,5 +1,7 @@
-import {usestate, useEffect, useState} from 'react'
+import { useEffect, useState} from 'react'
 import './App.css';
+import axios from 'axios';
+
 
 function App() {
   const [joke, setJoke]= useState('');
@@ -15,26 +17,42 @@ function App() {
     setIsLoading(true);
     setError(null);
 
-    try{
-      const result = await fetch('https://api.freeapi.app/api/v1/public/randomjokes').then(result=> result.json());
+    // try{
+    //   const result = await fetch('https://api.freeapi.app/api/v1/public/randomjokes').then(result=> result.json());
       
-      if(result.success && result.data && result.data.data){
-        const jokesArray= result.data.data;
-        const randomIndex = Math.floor(Math.random()* jokesArray.length )
-        const jokeContent= jokesArray[randomIndex].content;
-       // const newJokes= 
+    //   if(result.success && result.data && result.data.data){
+    //     const jokesArray= result.data.data;
+    //     const randomIndex = Math.floor(Math.random()* jokesArray.length )
+    //     const jokeContent= jokesArray[randomIndex].content;
+    //    // const newJokes= 
         
-        setJoke(jokeContent);
-      }else{
-        throw new Error ("Failed to fetch joke");
-      }
+    //     setJoke(jokeContent);
+    //   }else{
+    //     throw new Error ("Failed to fetch joke");
+    //   }
 
+    // }catch(err){
+    //   setError(err.message)
+    // }finally{
+    //   setIsLoading(false);
+    // }
+
+    try{
+      const result = await axios.get('https://api.freeapi.app/api/v1/public/randomjokes')
+      if (result.data.success && result.data.data && result.data.data.data) {
+        const jokesArray = result.data.data.data;
+        const randomIndex = Math.floor(Math.random() * jokesArray.length);
+        const jokeContent = jokesArray[randomIndex].content;
+        setJoke(jokeContent);
+    }else{
+        throw new Error("failed to fetch joke");
+      }
     }catch(err){
       setError(err.message)
     }finally{
-      setIsLoading(false);
+      setIsLoading(false)
     }
-
+    
   }
 
   // useEffect(  ()=>{
