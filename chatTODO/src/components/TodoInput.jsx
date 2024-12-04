@@ -16,7 +16,7 @@ function TodoInput() {
       <input type="text"  
       value={input}
       onChange={(e)=>setInput(e.target.value)}
-      placeholder='ENter new task'/>
+      placeholder='Enter new task'/>
       <button onClick={handelSubmit}>Add Task</button>
     </div>
   )
