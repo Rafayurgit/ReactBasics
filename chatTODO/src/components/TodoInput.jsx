@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 
-function TodoInput() {
+function TodoInput({addTask}) {
 
     const [input, setInput]= useState("");
     const handelSubmit= ()=>{
@@ -8,6 +8,7 @@ function TodoInput() {
             alert("Task cannot be empty");
             return;
         }
+        addTask(input);
         setInput("");
     }
 

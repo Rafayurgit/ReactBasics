@@ -7,10 +7,14 @@ import TodoInput from './components/TodoInput'
 function App() {
   const [task ,setTask]= useState([]);
 
+  const addTask=(newTask)=>{
+    setTask([...task, newTask]);
+  }
+
 
   return (
     <>
-      <TodoInput/>
+      <TodoInput addTask={addTask}/>
       
       <ul>
         {task.map((task, index)=>(
