@@ -6,6 +6,8 @@ import TodoInput from './components/TodoInput'
 
 function App() {
   const [task ,setTask]= useState([]);
+  const [editIndex, setEditIndex] = useState(null);
+
 
   const addTask=(newTask)=>{
     setTask([...task, newTask]);
@@ -22,9 +24,14 @@ function App() {
       <TodoInput addTask={addTask}/>
       
       <ul>
-        {task.map((task, index)=>(
+        {task.map((taskItem, index)=>(
           <li key={index}>
-            {task}
+            {editIndex === index ? (
+              <input type="text" defaultValue={taskItem} />
+            ) :(
+              taskItem
+            )}
+            <button onClick={()=>{setEditIndex(index)}}>Edit</button>
             <button onClick={()=>{deleteTask(index)}}>Delete</button>
           </li>
         ))}
