@@ -11,6 +11,16 @@ function App() {
 
 
   const addTask=(newTask)=>{
+    if(newTask.trim()===""){
+      alert("Task Can not be empty !");
+      return;
+    }
+
+    if(newTask.includes(task)){
+      alert("Task already exist !");
+      return;
+    }
+
     setTask([...task, newTask]);
   }
 
@@ -28,7 +38,11 @@ function App() {
         {task.map((taskItem, index)=>(
           <li key={index}>
             {editIndex === index ? (
-              <input type="text" value={editText} onChange={(e)=>setEditText(e.target.value)} />
+              <input type="text" 
+              value={editText} 
+              onChange={(e)=>setEditText(e.target.value)}
+              
+              />
             ) :(
               taskItem
             )}
