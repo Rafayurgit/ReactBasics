@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
@@ -6,7 +6,7 @@ import TodoInput from './components/TodoInput'
 
 function App() {
   const [task ,setTask]= useState(()=>{
-    const savedTasks= localStorage.getItem("task");
+    const savedTasks= localStorage.getItem("tasks");
     return savedTasks ? JSON.parse(savedTasks) : [];
   });
 
@@ -32,6 +32,10 @@ function App() {
     const updatedTask = task.filter((_, i)=> i!== index);
     setTask(updatedTask);
   }
+
+  useEffect(()=>{
+    localStorage.setItem("tasks", JSON.stringify(task));
+  },[task])
 
 
   return (
