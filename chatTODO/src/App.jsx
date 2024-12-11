@@ -5,7 +5,11 @@ import './App.css'
 import TodoInput from './components/TodoInput'
 
 function App() {
-  const [task ,setTask]= useState([]);
+  const [task ,setTask]= useState(()=>{
+    const savedTasks= localStorage.getItem("task");
+    return savedTasks ? JSON.parse(savedTasks) : [];
+  });
+
   const [editIndex, setEditIndex] = useState(null);
   const [editText, setEditText] = useState("");
 
