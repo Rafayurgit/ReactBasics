@@ -40,8 +40,10 @@ function App() {
 
   return (
     <>
-      <TodoInput addTask={addTask}/>
-      
+    <TodoInput addTask={addTask}/>
+    {task.length === 0 ? (
+        <p style={{ fontStyle: "italic", color: "gray" }}>No tasks to show</p>
+    ) : (
       <ul>
         {task.map((taskItem, index)=>(
           <li key={index}>
@@ -68,6 +70,7 @@ function App() {
           </li>
         ))}
       </ul>
+    ) }
     </>
   )
 }
