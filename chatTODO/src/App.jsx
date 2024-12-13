@@ -49,12 +49,11 @@ function App() {
     ) : (
       <ul>
         {task.map((taskItem, index)=>(
-          <li key={index}>
+          <li key={index} style={{textDecoration: completedTask.includes(index) ? "line-through": "none"}}>
             {editIndex === index ? (
               <input type="text" 
               value={editText} 
               onChange={(e)=>setEditText(e.target.value)}
-              
               />
             ) :(
               taskItem
