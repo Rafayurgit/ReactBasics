@@ -5,6 +5,9 @@ import './App.css'
 import TodoInput from './components/TodoInput'
 
 function App() {
+
+  const [completedTask, setCompletedTask] =  useState([]);
+
   const [task ,setTask]= useState(()=>{
     const savedTasks= localStorage.getItem("tasks");
     return savedTasks ? JSON.parse(savedTasks) : [];
@@ -67,6 +70,17 @@ function App() {
               setEditText("");
             }}>Save</button>
             <button onClick={()=>{deleteTask(index)}}>Delete</button>
+
+            <button onClick={()=>{
+              if(completedTask.includes(index)){
+                setCompletedTask(completedTask.filter((i)=> i!== index ));
+              }else{
+                setCompletedTask([...completedTask, index]);
+              }
+            }}>
+              {completedTask.includes(index) ? "Undo": "Complete" }
+            </button>
+
           </li>
         ))}
       </ul>
