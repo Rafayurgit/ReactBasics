@@ -1,109 +1,98 @@
-import { useState, useCallback, useEffect, useRef} from 'react'
+import { useState, useCallback, useEffect, useRef } from "react";
 
-import './App.css'
+import "./App.css";
 
 function App() {
   const [length, setLength]= useState(7);
-  const [numAllow, setNumAllow]= useState(false);
-  const [charAllow, setCharAllow]= useState(false);
-  const [password, setPassword]= useState("");
+  const [numAllowed, setNumAllowed] = useState(false);
+  const [charAllowed, setCharAllowed] = useState(false);
+  const [passGen, setPassGen] =useState("");  
 
-  const mainpass=()=>{
+  const passwordGen = useCallback(()=>{
     let pass="";
-    let str="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-
-    if(numAllow){
-      str+="1234567890"
-    }
-    if (charAllow){
-      str+="!@#$%^&*()"
-    }
-
-    for(let i=1; i<length; i++){
-      let char= Math.floor(Math.random()*str.length+1)
-      pass +=str.charAt(char)
-    }
-
+    const str="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     
-    setPassword(pass);
-  }
+    if(numAllowed) str+"1234567890";
+    if(charAllowed) str+"!@#$%^&*()";
 
-  const passwordGen=useCallback( mainpass , [length, numAllow, charAllow, setPassword])
+    for(let i=0; i<length; i++){
+      const index= Math.floor(Math.random()*str.length);
+      pass  += str.charAt(index);
+    }
 
-  useEffect(()=>{
-    passwordGen()
-  },[length, numAllow, charAllow, passwordGen])
+    setPassGen(pass);
+  }, [])
 
-  const passwordRef= useRef(null);
+  // useEffect(() => {
+  //   passwordGen();
+  // }, [length, numAllow, charAllow, passwordGen]);
 
-  const copyToClipBoard= useCallback(()=>{
-    passwordRef.current?.select();
-    passwordRef.current?.setSelectionRange(0,100)
-    window.navigator.clipboard.writeText(password)
-  },[password])
+  // const passwordRef = useRef(null);
 
+  // const copyToClipBoard = useCallback(() => {
+  //   passwordRef.current?.select();
+  //   passwordRef.current?.setSelectionRange(0, 100);
+  //   window.navigator.clipboard.writeText(password);
+  // }, [password]);
 
   return (
     <>
-      <h1 className='text-xl text-center'>PassWord Generator</h1>
+      <h1 className="text-xl text-center">PassWord Generator</h1>
 
-      <div className='w-full max-w-md bg-gray-700 px-4 my-8 py-8 text-orange-500 rounded-md max-w-md  mx-auto' >
-        <div className='flex shadow-sm rounded overflow-hidden mb-4' >
-          <input type="text" 
-          className='outline-none w-full py-1 px-3'
-          placeholder='password'
-          value={password}
-          ref={passwordRef}
+      <div className="w-full max-w-md bg-gray-700 px-4 my-8 py-8 text-orange-500 rounded-md max-w-md  mx-auto">
+        <div className="flex shadow-sm rounded overflow-hidden mb-4">
+          <input
+            type="text"
+            className="outline-none w-full py-1 px-3"
+            placeholder="password"
+            value={password}
+            ref={passwordRef}
           />
-          <button className='bg-blue-600 px-2 '
-          onClick={copyToClipBoard}
-          >COPY</button>
+          <button className="bg-blue-600 px-2 " onClick={copyToClipBoard}>
+            COPY
+          </button>
         </div>
-        <div className='flex text-sm gap-x-2'>
-          <divc className='flex items-center gap-x-1'>
-            <input 
-            className='cursor-pointer'
-            type="range" 
-            min={7}
-            max={27}
-            value={length}
-            onChange={(e)=>{setLength(e.target.value)}}
-             />
-             <label htmlFor="">Length:{length}</label>
+        <div className="flex text-sm gap-x-2">
+          <divc className="flex items-center gap-x-1">
+            <input
+              className="cursor-pointer"
+              type="range"
+              min={7}
+              max={27}
+              value={length}
+              onChange={(e) => {
+                setLength(e.target.value);
+              }}
+            />
+            <label htmlFor="">Length:{length}</label>
           </divc>
 
-          <divc className='flex items-center gap-x-1'>
-            <input 
-            className='cursor-pointer'
-            
-            id="numInput"
-            type="checkbox" 
-            onChange={()=>{
-              setNumAllow((prev)=> !prev)
-            }}
-           
-            
-             />
-             <label htmlFor="">Numbers:</label>
-          </divc>  
+          <divc className="flex items-center gap-x-1">
+            <input
+              className="cursor-pointer"
+              id="numInput"
+              type="checkbox"
+              onChange={() => {
+                setNumAllow((prev) => !prev);
+              }}
+            />
+            <label htmlFor="">Numbers:</label>
+          </divc>
 
-          <divc className='flex items-center gap-x-1'>
-            <input 
-            className='cursor-pointer'
-            
-            type="checkbox" 
-           
-            onChange={()=>{
-              setCharAllow((prev)=>!prev)
-            }}
-             />
-             <label htmlFor="">Characters:</label>
-          </divc>  
+          <divc className="flex items-center gap-x-1">
+            <input
+              className="cursor-pointer"
+              type="checkbox"
+              onChange={() => {
+                setCharAllow((prev) => !prev);
+              }}
+            />
+            <label htmlFor="">Characters:</label>
+          </divc>
         </div>
       </div>
-
     </>
-  )
+  );
 }
 
-export default App
+export default App;
