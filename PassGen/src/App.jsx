@@ -21,7 +21,26 @@ function App() {
     }
 
     setPassGen(pass);
-  }, [])
+  }, [length, numAllowed, charAllowed, setPassGen])
+
+  useEffect(()=>{
+    passwordGen();
+  }, [length, numAllowed, charAllowed, passwordGen])
+
+  const passwordRef= useRef(null);
+
+  const copyToClipBoard= useCallback(()=>{
+    passwordRef.current.select();
+    passwordRef.current.setSelectionRange(0,7);
+    window.navigator.clipboard.writeText(passGen);
+  },[passGen])
+    
+  
+
+
+
+
+
 
   // useEffect(() => {
   //   passwordGen();
