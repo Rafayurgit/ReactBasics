@@ -92,7 +92,7 @@ function App() {
               id="numInput"
               type="checkbox"
               onChange={() => {
-                setNumAllow((prev) => !prev);
+                setNumAllowed((prev) => !prev);
               }}
             />
             <label htmlFor="">Numbers:</label>
@@ -103,7 +103,7 @@ function App() {
               className="cursor-pointer"
               type="checkbox"
               onChange={() => {
-                setCharAllow((prev) => !prev);
+                setCharAllowed((prev) => !prev);
               }}
             />
             <label htmlFor="">Characters:</label>
