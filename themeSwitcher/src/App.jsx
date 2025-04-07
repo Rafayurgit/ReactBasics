@@ -5,20 +5,25 @@ import ThemeButton from "./Components/ThemeButton";
 import Card from "./Components/Card";
 
 function App() {
-  const [themeMode, setThemeMode]= useState("light")
+
+  const [themeMode, setThemeMode]= useState("light");
 
   const lightTheme=()=>{
     setThemeMode("light")
   }
 
   const darkTheme=()=>{
-    setThemeMode("dark")
+    setThemeMode("datk")
   }
 
-  useEffect(()=>{
-    document.querySelector("html").classList.remove("dark" ,"light")
+  const useEffect=(()=>{
+    
+    document.querySelector("html").classList.remove("light" ,"dark");
     document.querySelector("html").classList.add(themeMode)
-  },[themeMode])
+
+
+  }, [themeMode])
+  
   
 
   return (
