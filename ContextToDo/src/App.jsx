@@ -28,6 +28,14 @@ function App() {
     })
   }
 
+  const toggleTodo =(id)=>{
+    setTodos((prevTodo)=>{
+      return prevTodo.map((todo)=>{
+        return todo.id === id ? {...todo, complete: !todo.complete}: todo
+      })
+    })
+  }
+
   useEffect(()=>{
     const todos= JSON.parse(localStorage.getItem("todos"))
 
