@@ -20,6 +20,14 @@ function App() {
     })
   }
 
+  const updateTodo=(id, todo)=>{
+    setTodos( (prevTodo)=>{
+      return prevTodo.map((todos)=>{
+        return todos.id ===id ? todo: todos
+      })
+    })
+  }
+
   useEffect(()=>{
     const todos= JSON.parse(localStorage.getItem("todos"))
 
