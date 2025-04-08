@@ -12,8 +12,12 @@ function App() {
     setTodos((preVtodo)=> [{id: Date.now() , ...todo }, ...preVtodo])
   }
 
-  const deleteTodo=()=>{
-    setTodos()
+  const deleteTodo=(id)=>{
+    setTodos((previosTodod)=>{
+      return previosTodod.filter((todo)=>{
+        return todo.id !==id
+      })
+    })
   }
 
   useEffect(()=>{
