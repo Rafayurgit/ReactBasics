@@ -28,25 +28,36 @@ function App() {
     })
   }
 
-  const toggleTodo =(id)=>{
-    setTodos((prevTodo)=>{
-      return prevTodo.map((todo)=>{
-        return todo.id === id ? {...todo, complete: !todo.complete}: todo
-      })
-    })
+  const toggleTodo=(id)=>{
+    setTodos((prevTodo)=> prevTodo.map((todo)=> {
+      return todo.id===id ? {...todo, complete: !todo.complete }:todo
+    }))
   }
 
   useEffect(()=>{
-    const todos= JSON.parse(localStorage.getItem("todos"))
+    const todos= JSON.parse( localStorage.getItem("todos"))
 
-    if(todos && todos.length>0) {
+    if(todos && todos.length >0){
       setTodos(todos)
     }
-  },[])
+
+  }, [])
 
   useEffect(()=>{
-    localStorage.setItem("todos", JSON.stringify(todos))
-  },[todos])
+    localStorage.setItem("todos" ,JSON.stringify(todos))
+  }, [todos])
+
+  // useEffect(()=>{
+  //   const todos= JSON.parse(localStorage.getItem("todos"))
+
+  //   if(todos && todos.length>0) {
+  //     setTodos(todos)
+  //   }
+  // },[])
+
+  // useEffect(()=>{
+  //   localStorage.setItem("todos", JSON.stringify(todos))
+  // },[todos])
   
 
   return (
