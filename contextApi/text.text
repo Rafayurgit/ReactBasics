@@ -1,0 +1,629 @@
+#neo4j-upgrade-csi.yaml
+
+parameters:
+- name: cores
+  type: object
+  default: 
+  - core-1
+  - core-2
+  - core-3
+- name: coreExtras
+  type: object
+  default: 
+  - core-extra-1
+
+steps:
+- task: DownloadPipelineArtifact@2
+  inputs:
+    buildType: 'current'
+    artifactName: 'neo4j-artifact-prod'
+    targetPath: 'neo4j-artifact-prod'
+
+- task: HelmInstaller@0
+  inputs:
+    helmVersion: '2.14.1'
+    installKubectl: true
+
+- task: AzureKeyVault@2
+  inputs:
+    azureSubscription: 'DevOpsServiceConnection'
+    KeyVaultName: 'amusw21kv'
+    SecretsFilter: 'neo4j-password'
+    RunAsPreJob: false
+
+- task: AzureCLI@1
+  displayName: Get CPU and Memory
+  inputs:
+    azureSubscription: '$(serviceConnection)'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      az account set --subscription $(azureSubscription)
+      
+      core_standalone_memory=$(az storage entity query --table-name neo4jconfig --account-name $(azureStorageAccount) --filter "PartitionKey eq '$(env)' and RowKey eq 'neo4j-standalone'" --query "items[0].Memory")
+      core_1_memory=$(az storage entity query --table-name neo4jconfig --account-name $(azureStorageAccount) --filter "PartitionKey eq '$(env)' and RowKey eq 'neo4j-core-1'" --query "items[0].Memory")
+      core_2_memory=$(az storage entity query --table-name neo4jconfig --account-name $(azureStorageAccount) --filter "PartitionKey eq '$(env)' and RowKey eq 'neo4j-core-2'" --query "items[0].Memory")
+      core_3_memory=$(az storage entity query --table-name neo4jconfig --account-name $(azureStorageAccount) --filter "PartitionKey eq '$(env)' and RowKey eq 'neo4j-core-3'" --query "items[0].Memory")
+      core_extra_memory=$(az storage entity query --table-name neo4jconfig --account-name $(azureStorageAccount) --filter "PartitionKey eq '$(env)' and RowKey eq 'neo4j-core-extra-1'" --query "items[0].Memory")
+      
+      core_standalone_cpu=$(az storage entity query --table-name neo4jconfig --account-name $(azureStorageAccount) --filter "PartitionKey eq '$(env)' and RowKey eq 'neo4j-standalone'" --query "items[0].CPU")
+      core_1_cpu=$(az storage entity query --table-name neo4jconfig --account-name $(azureStorageAccount) --filter "PartitionKey eq '$(env)' and RowKey eq 'neo4j-core-1'" --query "items[0].CPU")
+      core_2_cpu=$(az storage entity query --table-name neo4jconfig --account-name $(azureStorageAccount) --filter "PartitionKey eq '$(env)' and RowKey eq 'neo4j-core-2'" --query "items[0].CPU")
+      core_3_cpu=$(az storage entity query --table-name neo4jconfig --account-name $(azureStorageAccount) --filter "PartitionKey eq '$(env)' and RowKey eq 'neo4j-core-3'" --query "items[0].CPU")
+      core_extra_cpu=$(az storage entity query --table-name neo4jconfig --account-name $(azureStorageAccount) --filter "PartitionKey eq '$(env)' and RowKey eq 'neo4j-core-extra-1'" --query "items[0].CPU")
+      
+      core_standalone_cpu=`sed -e 's/^"//' -e 's/"$//' <<<"$core_standalone_cpu"`
+      core_1_cpu=`sed -e 's/^"//' -e 's/"$//' <<<"$core_1_cpu"`
+      core_2_cpu=`sed -e 's/^"//' -e 's/"$//' <<<"$core_2_cpu"`
+      core_3_cpu=`sed -e 's/^"//' -e 's/"$//' <<<"$core_3_cpu"`
+      core_extra_cpu=`sed -e 's/^"//' -e 's/"$//' <<<"$core_extra_cpu"`
+      
+      echo "##vso[task.setvariable variable=MemoryCoreStandalone]$core_standalone_memory"
+      echo "##vso[task.setvariable variable=MemoryCore1]$core_1_memory"
+      echo "##vso[task.setvariable variable=MemoryCore2]$core_2_memory"
+      echo "##vso[task.setvariable variable=MemoryCore3]$core_3_memory"
+      echo "##vso[task.setvariable variable=MemoryCoreExtra]$core_extra_memory"
+
+      echo "##vso[task.setvariable variable=CPUCoreStandalone]$core_standalone_cpu"
+      echo "##vso[task.setvariable variable=CPUCore1]$core_1_cpu"
+      echo "##vso[task.setvariable variable=CPUCore2]$core_2_cpu"
+      echo "##vso[task.setvariable variable=CPUCore3]$core_3_cpu"
+      echo "##vso[task.setvariable variable=CPUCoreExtra]$core_extra_cpu"
+
+- task: AzureCLI@1
+  displayName: Get PV and PVC
+  inputs:
+    azureSubscription: '$(serviceConnection)'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      #grab the zone for standalone
+      az aks get-credentials --resource-group $(clusterResourceGroup) --name $(clusterName) --admin --overwrite-existing
+      pvcs=$(kubectl get pvc -n $(namespace) | grep data-neo4j)
+      pvc=($pvcs)
+      pvcname=${pvc[0]}
+      PV_STANDALONE=$(kubectl get pvc $pvcname -n $(namespace) -o json | jq -r .spec.volumeName)
+      ZONE_STANDALONE=$(kubectl get pv $PV_STANDALONE -o json | jq -r  .spec.nodeAffinity.required.nodeSelectorTerms[].matchExpressions[].values[])
+      echo "##vso[task.setvariable variable=zone_standalone]$ZONE_STANDALONE"
+      echo "ZONE IS: $ZONE_STANDALONE"
+
+- task: AzureCLI@2
+  displayName: GetNeo4jPreCount
+  inputs:
+    azureSubscription: '$(serviceConnection)'
+    scriptLocation: 'inlineScript'
+    scriptType: 'pscore'
+    inlineScript: |
+      az aks get-credentials --resource-group $(clusterResourceGroup) --name $(clusterName) --admin --overwrite-existing
+      if("$(env)" -eq 'PROD'){
+        $app = 'neo4j-cluster'
+      }
+      else{
+        $app = 'neo4j-standalone'
+      }
+      $pods = kubectl -n $(namespace) get pods --ignore-not-found=true -l "app=$app"
+      if($pods){
+        $podname = ($pods[1] -Split '\s+')[0]
+        Write-Output $podname
+        $count = (kubectl exec -i $podname -n $(namespace) -- cypher-shell -u neo4j -p tcs@1234 "match(n) return count(n);")[1]
+        if(!($count -match "^[\d\.]+$")){
+          Throw "Error while extracting count for existing neo4j database"
+        }
+        Write-Host "##vso[task.setvariable variable=neo4jcount;]$count"
+        Write-Output $count
+
+        $modelcount = (kubectl exec -i $podname -n $(namespace) -- cypher-shell -u neo4j -p tcs@1234 "match(n:_model) return count(n);")[1]
+        if(!($modelcount -match "^[\d\.]+$")){
+          Throw "Error while extracting model count for existing neo4j database"
+        }
+        Write-Host "##vso[task.setvariable variable=neo4jmodelcount;]$modelcount"
+        Write-Output $modelcount
+
+        $functioncount = (kubectl exec -i $podname -n $(namespace) -- cypher-shell -u neo4j -p tcs@1234 "match(n:function) return count(n);")[1]
+        if(!($functioncount -match "^[\d\.]+$")){
+          Throw "Error while extracting function count for existing neo4j database"
+        }
+        Write-Host "##vso[task.setvariable variable=neo4jfunctioncount;]$functioncount"
+        Write-Output $functioncount
+
+        $entitycount = (kubectl exec -i $podname -n $(namespace) -- cypher-shell -u neo4j -p tcs@1234 "match(n:_entity) return count(n);")[1]
+        if(!($entitycount -match "^[\d\.]+$")){
+          Throw "Error while extracting entity count for existing neo4j database"
+        }
+        Write-Host "##vso[task.setvariable variable=neo4jentitycount;]$entitycount"
+        Write-Output $entitycount
+
+        $policycount = (kubectl exec -i $podname -n $(namespace) -- cypher-shell -u neo4j -p tcs@1234 "match(n:_policy) return count(n);")[1]
+        if(!($policycount -match "^[\d\.]+$")){
+          Throw "Error while extracting policy count for existing neo4j database"
+        }
+        Write-Host "##vso[task.setvariable variable=neo4jpolicycount;]$policycount"
+        Write-Output $policycount
+
+        #Show DBs
+        kubectl exec -i $podname -n $(namespace)  -- cypher-shell -u neo4j -p tcs@1234 "show databases;"
+      }
+      else{
+        Throw "Neo4j pods not found"
+      }
+
+- task: AzureCLI@1
+  displayName: CreateCSIStorageClass
+  inputs:
+    azureSubscription: '$(serviceConnection)'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      az aks get-credentials --resource-group $(clusterResourceGroup) --name $(clusterName) --admin --overwrite-existing
+      #Create storage class for disk and file
+      kubectl apply -f neo4j-csi-disk-sc.yaml
+      kubectl apply -f neo4j-csi-file-sc.yaml
+    workingDirectory: 'neo4j-artifact-prod/neo4j-upgrade-prod/neo4j-csi/'
+      
+- task: AzureCLI@2
+  displayName: CreateCSIBackupPVC
+  inputs:
+    azureSubscription: '$(serviceConnection)'
+    scriptLocation: 'inlineScript'
+    scriptType: 'pscore'
+    inlineScript: |
+      az aks get-credentials --resource-group $(clusterResourceGroup) --name $(clusterName) --admin --overwrite-existing
+      #Change reclaim policy to retain for existing fileshare
+      $pvc=(kubectl get pvc -n $(namespace) | grep 'neo4j-pvc')
+      $pvcfileshare = ($pvc -split '\s+')[0]
+      $pvfileshare = ($pvc -split '\s+')[2]
+      $rgName = "$(clusterResourceGroup)"
+      
+      if(!$pvcfileshare){
+          Throw "Backup PVC not found"
+      }
+      
+      Write-Host "##vso[task.setvariable variable=pvcfileshare;]$pvcfileshare"
+      Write-Output $pvcfileshare
+
+      #Get Secret and shareName
+      $shareName = kubectl get pv $pvfileshare -n $(namespace) -o json | jq -r '.spec.azureFile.shareName'
+      $secretName = kubectl get pv $pvfileshare -n $(namespace) -o json | jq -r '.spec.azureFile.secretName'
+      if(!$shareName -or !$secretName){
+          Throw "Error retrieving secretName and shareName from existing backup pvc"
+      }
+
+      # kubectl patch pv $pvfileshare -p '{\"spec\":{\"persistentVolumeReclaimPolicy\":\"Retain\"}}' -n $(namespace)
+      kubectl patch pv $pvfileshare -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}' -n $(namespace)
+
+      #Check If CSI PVC already exists (for rerun)
+      $backuppvcname = "neo4j-backup-pvc-csi-$(namespace)"
+      $pvcexists = (kubectl get pvc $backuppvcname -n $(namespace)  --ignore-not-found=true)
+      if($pvcexists){
+        Write-Output "CSI PVC for backup already exists"
+      }
+      else{
+        #Backup PVC
+        #Create new fileshare pvc
+        (Get-Content -Path 'neo4j-file-pvc.yaml') -Replace '{{namespace}}', "$(namespace)" | Set-Content -Path "neo4j-file-pvc-$(namespace).yaml"
+        (Get-Content -Path 'neo4j-file-pvc-$(namespace).yaml') -Replace '{{secretName}}', "$secretName" | Set-Content -Path "neo4j-file-pvc-$(namespace).yaml"
+        (Get-Content -Path 'neo4j-file-pvc-$(namespace).yaml') -Replace '{{shareName}}', "$shareName" | Set-Content -Path "neo4j-file-pvc-$(namespace).yaml"
+        (Get-Content -Path 'neo4j-file-pvc-$(namespace).yaml') -Replace '{{resourceGroupName}}', "$rgName" | Set-Content -Path "neo4j-file-pvc-$(namespace).yaml"
+        kubectl apply -f "neo4j-file-pvc-$(namespace).yaml" -n $(namespace)
+        #Wait
+        Start-Sleep 30
+      }
+      #Validate new PVC
+      $status = kubectl get pvc $backuppvcname -n $(namespace) -o json | jq -r '.status.phase'
+      if($status -ne 'Bound'){
+          Throw "New backup PVC is not bound"
+      }
+      Write-Host "##vso[task.setvariable variable=backup_pvc;]$backuppvcname"
+      Write-Output $backuppvcname
+
+
+    workingDirectory: 'neo4j-artifact-prod/neo4j-upgrade-prod/neo4j-csi/'
+
+# - task: AzureCLI@2
+#   displayName: CreateCSIDataPVC
+#   inputs:
+#     azureSubscription: '$(serviceConnection)'
+#     scriptLocation: 'inlineScript'
+#     scriptType: 'pscore'
+#     inlineScript: |
+#       az aks get-credentials --resource-group $(clusterResourceGroup) --name $(clusterName) --admin --overwrite-existing
+#       #Create PV and PVC
+#       if("$(env)" -eq 'PROD'){
+#           $newpvc1 = (Get-Content -Path 'neo4j-disk-pvc-prod-1.yaml') -Replace '{{namespace}}', "$(namespace)"
+#           $newpvc2 = (Get-Content -Path 'neo4j-disk-pvc-prod-2.yaml') -Replace '{{namespace}}', "$(namespace)"
+#           $newpvc3 = (Get-Content -Path 'neo4j-disk-pvc-prod-3.yaml') -Replace '{{namespace}}', "$(namespace)"
+#           $newpvc1 | Out-File -FilePath "neo4j-disk-pvc-1-$(namespace).yaml"
+#           $newpvc2 | Out-File -FilePath "neo4j-disk-pvc-2-$(namespace).yaml"
+#           $newpvc3 | Out-File -FilePath "neo4j-disk-pvc-3-$(namespace).yaml"
+#           kubectl apply -f "neo4j-disk-pvc-1-$(namespace).yaml" -n $(namespace)
+#           kubectl apply -f "neo4j-disk-pvc-2-$(namespace).yaml" -n $(namespace)
+#           kubectl apply -f "neo4j-disk-pvc-3-$(namespace).yaml" -n $(namespace)
+#           $datapvc1 = "data-neo4j-csi-pvc-$(namespace)-1"
+#           $datapvc2 = "data-neo4j-csi-pvc-$(namespace)-2"
+#           $datapvc3 = "data-neo4j-csi-pvc-$(namespace)-3"
+#           Write-Host "##vso[task.setvariable variable=data_pvc_1;]$datapvc1"
+#           Write-Host "##vso[task.setvariable variable=data_pvc_2;]$datapvc2"
+#           Write-Host "##vso[task.setvariable variable=data_pvc_3;]$datapvc3"
+#           Write-Output $datapvc1 $datapvc2 $datapvc3
+#       }
+#       else{
+#           $newpvc1 = (Get-Content -Path 'neo4j-disk-pvc-uat.yaml') -Replace '{{namespace}}', "$(namespace)"
+#           $newpvc1 | Out-File -FilePath "neo4j-disk-pvc-1-$(namespace).yaml"
+#           kubectl apply -f "neo4j-disk-pvc-1-$(namespace).yaml" -n $(namespace)
+#           $datapvc = "data-neo4j-csi-pvc-$(namespace)"
+#           Write-Host "##vso[task.setvariable variable=data_pvc;]$datapvc"
+#           Write-Output $datapvc
+#       }
+#     workingDirectory: 'neo4j-artifact-prod/neo4j-upgrade-prod/neo4j-csi/'
+- task: AzureCLI@2
+  displayName: BackupExistingDataDisk
+  inputs:
+    azureSubscription: '$(serviceConnection)'
+    scriptLocation: 'inlineScript'
+    scriptType: 'pscore'
+    inlineScript: |
+      az aks get-credentials --resource-group $(clusterResourceGroup) --name $(clusterName) --admin --overwrite-existing
+      kubectl delete job/neo4j-backup -n $(namespace) --ignore-not-found=true
+      #Data disk PVC
+      #Create backup job for existing
+      if("$(env)" -eq 'PROD'){
+          $backupjob = (Get-Content -Path 'neo4j-backup-prod.yaml') -Replace '{{pvc}}', "$(pvcfileshare)"
+          $backupjob | Out-File -FilePath "neo4j-backup-$(namespace).yaml"
+      }
+      else{
+          $backupjob = (Get-Content -Path 'neo4j-backup-uat.yaml') -Replace '{{pvc}}', "$(pvcfileshare)"
+          $backupjob | Out-File -FilePath "neo4j-backup-$(namespace).yaml"
+      }
+      cat neo4j-backup-$(namespace).yaml
+      kubectl apply -f "neo4j-backup-$(namespace).yaml" -n $(namespace)
+      Write-Output "Waiting for prebackup to complete, upto 1hr depending on size"
+      kubectl wait --for=condition=complete --timeout=3600s job/neo4j-backup -n $(namespace)
+      $completed = (kubectl logs job/neo4j-backup -n $(namespace) | grep 'Backup complete successful')
+      if(-not $completed){
+          Throw "Pre backup failed for neo4j"
+      }
+    workingDirectory: 'neo4j-artifact-prod/neo4j-upgrade-prod/neo4j-csi/'
+
+- task: AzureCLI@2
+  displayName: CreateCSILogPVC
+  inputs:
+    azureSubscription: '$(serviceConnection)'
+    scriptLocation: 'inlineScript'
+    scriptType: 'pscore'
+    inlineScript: |
+      az aks get-credentials --resource-group $(clusterResourceGroup) --name $(clusterName) --admin --overwrite-existing
+      $logpvcname = "neo4j-pvc-logs-$(namespace)"
+      $pvcexists = (kubectl get pvc $logpvcname -n $(namespace)  --ignore-not-found=true)
+      if($pvcexists){
+        Write-Output "CSI PVC for Logs already exists"
+      }
+      else{
+        $logpvc = (Get-Content -Path 'neo4j-logs-pvc.yaml') -Replace '{{namespace}}', "$(namespace)"
+        $logpvc | Out-File -FilePath "neo4j-logs-pvc-$(namespace).yaml"
+        kubectl apply -f "neo4j-logs-pvc-$(namespace).yaml" -n $(namespace)
+      }
+      Write-Host "##vso[task.setvariable variable=logs_pvc;]$logpvcname"
+      Write-Output $logpvcname
+  
+    workingDirectory: 'neo4j-artifact-prod/neo4j-upgrade-prod/neo4j-csi/'
+
+- task: AzureCLI@2
+  displayName: ChangeDataDiskPVCToRetain
+  inputs:
+    azureSubscription: '$(serviceConnection)'
+    scriptLocation: 'inlineScript'
+    scriptType: 'pscore'
+    inlineScript: |
+      az aks get-credentials --resource-group $(clusterResourceGroup) --name $(clusterName) --admin --overwrite-existing
+      #Change reclaim policy to retain for existing datadisks
+      $pvcs=(kubectl get pvc -n $(namespace) | grep 'data-neo4j')
+      Write-Output $pvcs
+      foreach($pvc in $pvcs){
+        $pv = ($pvc -split '\s+')[2]
+        # kubectl patch pv $pv -p '{\"spec\":{\"persistentVolumeReclaimPolicy\":\"Retain\"}}' -n $(namespace)
+        kubectl patch pv $pv -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}' -n $(namespace)
+      }
+
+- task: replacetokens@5
+  inputs:
+    rootDirectory: 'neo4j-artifact-prod/neo4j-upgrade-prod/neo4j-values/'
+    targetFiles: |
+      *.yaml
+    encoding: 'auto'
+    tokenPattern: 'doublebraces'
+    writeBOM: true
+    actionOnMissing: 'warn'
+    keepToken: false
+    actionOnNoFiles: 'continue'
+    enableTransforms: false
+    enableRecursion: false
+    useLegacyPattern: false
+    enableTelemetry: false
+
+- task: AzureCLI@1
+  condition: and(succeeded(), ne(variables['env'], 'PROD'))
+  displayName: Add Neo4j Repo and Turn Off Neo4j Backup Standalone
+  inputs:
+    azureSubscription: '$(serviceConnection)'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      az account set --subscription $(azureSubscription)
+      az aks get-credentials --resource-group $(clusterResourceGroup) --name $(clusterName) --admin --overwrite-existing
+      helm repo add neo4j https://helm.neo4j.com/neo4j
+      helm repo update
+
+      active=$(kubectl get cj neo4j-sabackup-iterative -n $(namespace) -o json | jq '.spec.status.active | length')
+      
+      while [$active -ne 0]
+      do
+        sleep 30
+        active=$(kubectl get cj neo4j-sabackup-iterative -n $(namespace) -o json | jq '.spec.status.active | length')
+      done
+      
+      kubectl patch cj neo4j-sabackup-iterative --patch '{"spec":{"suspend":true}}' -n $(namespace)
+
+- task: AzureCLI@1
+  condition: and(succeeded(), eq(variables['env'], 'PROD'))
+  displayName: Add Neo4j Repo and Turn Off Neo4j Backup Core
+  inputs:
+    azureSubscription: '$(serviceConnection)'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      az account set --subscription $(azureSubscription)
+      az aks get-credentials --resource-group $(clusterResourceGroup) --name $(clusterName) --admin --overwrite-existing
+      helm repo add neo4j https://helm.neo4j.com/neo4j
+      helm repo update
+
+      backup_name=""
+
+      if [[ $(kubectl get cj neo4j-backup-iterative -n $(namespace) -o json | jq -r .metadata.name) == "neo4j-backup-iterative" ]]; then
+        backup_name="neo4j-backup-iterative"
+      elif [[ $(kubectl get cj neo4j-sabackup-iterative -n $(namespace) -o json | jq -r .metadata.name) == "neo4j-sabackup-iterative" ]]; then
+        backup_name="neo4j-sabackup-iterative"
+        echo "WARNING: backup is not SA backup please look into changing name of cronjob soon"
+      else
+        echo "ERROR: backup does not exists or is named differently"
+      fi
+
+      active=$(kubectl get cj $backup_name -n $(namespace) -o json | jq '.spec.status.active | length')
+
+      while [$active -ne 0]
+      do
+        sleep 30
+        active=$(kubectl get cj $backup_name -n $(namespace) -o json | jq '.spec.status.active | length')
+      done
+
+      kubectl patch cj $backup_name --patch '{"spec":{"suspend":true}}' -n $(namespace)
+
+- task: AzureCLI@2
+  condition: and(succeeded(), ne(variables['env'], 'PROD'))
+  displayName: UninstallNonProd
+  inputs:
+    azureSubscription: '$(serviceConnection)'
+    scriptLocation: 'inlineScript'
+    scriptType: 'pscore'
+    inlineScript: |
+      #Uninstall existing setup
+      $app = 'neo4j-standalone'
+
+      $helmreleases = helm list -n $(namespace) | grep $app
+      foreach($release in $helmreleases){
+        $releasename = ($release -split '\s+')[0]
+        Write-Output $releasename
+        helm uninstall $releasename -n $(namespace)
+      }
+      kubectl delete pvc data-neo4j-standalone-0 -n $(namespace) --ignore-not-found=true
+
+- task: HelmDeploy@0
+  condition: and(succeeded(), ne(variables['env'], 'PROD'))
+  displayName: 'Upgrade Standalone'
+  inputs:
+    connectionType: 'Azure Resource Manager'
+    azureSubscription: '$(serviceConnection)'
+    azureResourceGroup: '$(clusterResourceGroup)'
+    kubernetesCluster: '$(clusterName)'
+    namespace: '$(namespace)'
+    command: 'upgrade'
+    useClusterAdmin: true
+    chartType: 'Name'
+    chartName: 'neo4j/neo4j-standalone'
+    chartVersion: '$(neo4jversion)'
+    releaseName: 'neo4j-standalone'
+    valueFile: 'neo4j-artifact-prod/neo4j-upgrade-prod/neo4j-values/neo4j-values-SA.yaml'
+    arguments: '--timeout 10m0s'
+
+- ${{ each core in parameters.cores }}:
+  - task: AzureCLI@2
+    condition: and(succeeded(), eq(variables['env'], 'PROD'))
+    displayName: UninstallEachCore
+    inputs:
+      azureSubscription: '$(serviceConnection)'
+      scriptLocation: 'inlineScript'
+      scriptType: 'pscore'
+      inlineScript: |
+        #Uninstall existing setup
+        $app = 'neo4j-core'
+        $corename = "${{ core }}"
+        $releasename = "neo4j-$corename"
+        helm uninstall $releasename -n $(namespace)
+        kubectl delete pvc "data-neo4j-$corename-0" -n $(namespace) --ignore-not-found=true
+
+  - task: HelmDeploy@0
+    condition: and(succeeded(), eq(variables['env'], 'PROD'))
+    displayName: 'Upgrade ${{core}}'
+    inputs:
+      connectionType: 'Azure Resource Manager'
+      azureSubscription: '$(serviceConnection)'
+      azureResourceGroup: '$(clusterResourceGroup)'
+      kubernetesCluster: '$(clusterName)'
+      namespace: '$(namespace)'
+      command: 'upgrade'
+      useClusterAdmin: true
+      chartType: 'Name'
+      chartName: 'neo4j/neo4j-cluster-core'
+      chartVersion: '$(neo4jversion)'
+      releaseName: 'neo4j-${{core}}'
+      valueFile: 'neo4j-artifact-prod/neo4j-upgrade-prod/neo4j-values/neo4j-values-${{core}}.yaml'
+      arguments: '--timeout 30m0s --wait'
+
+  - task: AzureCLI@1
+    displayName: 'Sleep ${{core}}'
+    condition: and(succeeded(), eq(variables['env'], 'PROD'))
+    inputs:
+      azureSubscription: '$(serviceConnection)'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        sleep 180
+
+- task: HelmDeploy@0
+  condition: and(succeeded(), eq(variables['env'], 'PROD'))
+  displayName: 'Upgrade headless'
+  inputs:
+    connectionType: 'Azure Resource Manager'
+    azureSubscription: '$(serviceConnection)'
+    azureResourceGroup: '$(clusterResourceGroup)'
+    kubernetesCluster: '$(clusterName)'
+    namespace: '$(namespace)'
+    command: 'upgrade'
+    useClusterAdmin: true
+    chartType: 'Name'
+    chartName: 'neo4j/neo4j-cluster-headless-service'
+    chartVersion: '$(neo4jversion)'
+    releaseName: 'headless'
+    arguments: '--timeout 10m0s --wait'
+
+- task: AzureCLI@1
+  displayName: Turn On Neo4j Backup Standalone
+  condition: and(always(), ne(variables['env'], 'PROD'))
+  inputs:
+    azureSubscription: '$(serviceConnection)'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      kubectl patch cj neo4j-sabackup-iterative --patch '{"spec":{"suspend":false}}' -n $(namespace)
+
+- task: AzureCLI@1
+  displayName: Turn On Neo4j Backup Core
+  condition: and(always(), eq(variables['env'], 'PROD'))
+  inputs:
+    azureSubscription: '$(serviceConnection)'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      backup_name=""
+      if [[ $(kubectl get cj neo4j-backup-iterative -n $(namespace) -o json | jq -r .metadata.name) == "neo4j-backup-iterative" ]]; then
+        backup_name="neo4j-backup-iterative"
+      elif [[ $(kubectl get cj neo4j-sabackup-iterative -n $(namespace) -o json | jq -r .metadata.name) == "neo4j-sabackup-iterative" ]]; then
+        backup_name="neo4j-sabackup-iterative"
+        echo "WARNING: backup is not SA backup please look into changing name of cronjob soon"
+      fi
+      kubectl patch cj $backup_name --patch '{"spec":{"suspend":false}}' -n $(namespace)
+
+- task: AzureCLI@2
+  displayName: GetNeo4jPostCount
+  inputs:
+    azureSubscription: '$(serviceConnection)'
+    scriptLocation: 'inlineScript'
+    scriptType: 'pscore'
+    inlineScript: |
+      az aks get-credentials --resource-group $(clusterResourceGroup) --name $(clusterName) --admin --overwrite-existing
+      
+      #Rename backup folder
+      kubectl delete job/neo4j-backup-rename -n $(namespace) --ignore-not-found=true
+      if("$(env)" -eq 'PROD'){
+          $backupjob = (Get-Content -Path 'neo4j-backup-rename-prod.yaml') -Replace '{{pvc}}', "$(backup_pvc)"
+          $backupjob | Out-File -FilePath "neo4j-backup-rename-$(namespace).yaml"
+      }
+      else{
+          $backupjob = (Get-Content -Path 'neo4j-backup-rename-uat.yaml') -Replace '{{pvc}}', "$(backup_pvc)"
+          $backupjob | Out-File -FilePath "neo4j-backup-rename-$(namespace).yaml"
+      }
+      cat neo4j-backup-rename-$(namespace).yaml
+      kubectl apply -f "neo4j-backup-rename-$(namespace).yaml" -n $(namespace)
+
+      if("$(env)" -eq 'PROD'){
+        $app = 'neo4j-cluster'
+      }
+      else{
+        $app = 'neo4j-standalone'
+      }
+      $pods = kubectl -n $(namespace) get pods --ignore-not-found=true -l "app=$app"
+      if($pods){
+        Write-Output "Waiting for pods to become ready"
+        kubectl -n $(namespace) wait --for=condition=ready pod -l "app=$app" --timeout=3m
+        $podname = ($pods[1] -Split '\s+')[0]
+        Write-Output $podname
+        $postcount = (kubectl exec -i $podname -n $(namespace) -- cypher-shell -u neo4j -p tcs@1234 "match(n) return count(n);")[1]
+        if(!($postcount -match "^[\d\.]+$")){
+          Throw "Error while extracting count for existing neo4j database"
+        }
+        Write-Output "PreCount: $(neo4jcount)"
+        Write-Output "PostCount: $postcount"
+
+        if(!($postcount -ge '$(neo4jcount)')){
+          Throw "Neo4j count does not match PreUpgrade count"
+        }
+
+        $postmodelcount = (kubectl exec -i $podname -n $(namespace) -- cypher-shell -u neo4j -p tcs@1234 "match(n:_model) return count(n);")[1]
+        if(!($postmodelcount -match "^[\d\.]+$")){
+          Throw "Error while extracting model count for existing neo4j database"
+        }
+        Write-Output "PremodelCount: $(neo4jmodelcount)"
+        Write-Output "PostmodelCount: $postmodelcount"
+
+        if(!($postmodelcount -ge '$(neo4jmodelcount)')){
+          Throw "Neo4j model count does not match PreUpgrade count"
+        }
+
+        $postfunctioncount = (kubectl exec -i $podname -n $(namespace) -- cypher-shell -u neo4j -p tcs@1234 "match(n:function) return count(n);")[1]
+        if(!($postfunctioncount -match "^[\d\.]+$")){
+          Throw "Error while extracting function count for existing neo4j database"
+        }
+        Write-Output "PrefunctionCount: $(neo4jfunctioncount)"
+        Write-Output "PostfunctionCount: $postfunctioncount"
+
+        if(!($postfunctioncount -ge '$(neo4jfunctioncount)')){
+          Throw "Neo4j function count does not match PreUpgrade count"
+        }
+
+        $postentitycount = (kubectl exec -i $podname -n $(namespace) -- cypher-shell -u neo4j -p tcs@1234 "match(n:_entity) return count(n);")[1]
+        if(!($postentitycount -match "^[\d\.]+$")){
+          Throw "Error while extracting entity count for existing neo4j database"
+        }
+        Write-Output "PreentityCount: $(neo4jentitycount)"
+        Write-Output "PostentityCount: $postentitycount"
+
+        if(!($postentitycount -ge '$(neo4jentitycount)')){
+          Throw "Neo4j entity count does not match PreUpgrade count"
+        }
+
+        $postpolicycount = (kubectl exec -i $podname -n $(namespace) -- cypher-shell -u neo4j -p tcs@1234 "match(n:_policy) return count(n);")[1]
+        if(!($postpolicycount -match "^[\d\.]+$")){
+          Throw "Error while extracting policy count for existing neo4j database"
+        }
+        Write-Output "PrepolicyCount: $(neo4jpolicycount)"
+        Write-Output "PostpolicyCount: $postpolicycount"
+
+        if(!($postpolicycount -ge '$(neo4jpolicycount)')){
+          Throw "Neo4j policy count does not match PreUpgrade count"
+        }
+
+        #Show DBs
+        kubectl exec -i $podname -n $(namespace)  -- cypher-shell -u neo4j -p tcs@1234 "show databases;"
+      }
+      else{
+        Throw "Neo4j pods not found"
+      }
+    workingDirectory: 'neo4j-artifact-prod/neo4j-upgrade-prod/neo4j-csi/'
+
+- task: AzureCLI@2
+  displayName: PatchBackupCJPVC
+  inputs:
+    azureSubscription: '$(serviceConnection)'
+    scriptLocation: 'inlineScript'
+    scriptType: 'pscore'
+    inlineScript: |
+      az aks get-credentials --resource-group $(clusterResourceGroup) --name $(clusterName) --admin --overwrite-existing
+      $cjs = kubectl get cj -n $(namespace) | grep neo4j
+      foreach($cj in $cjs){
+        Write-Output $cj
+        $cj = ($cj -split '\s+')[0]
+        kubectl patch cronjob $cj --type='json' -p='[{"op": "replace", "path": "/spec/jobTemplate/spec/template/spec/volumes/0/persistentVolumeClaim/claimName", "value": "$(backup_pvc)"}]' -n $(namespace)
+      }
+    workingDirectory: 'neo4j-artifact-prod/neo4j-upgrade-prod/neo4j-csi/'
+
